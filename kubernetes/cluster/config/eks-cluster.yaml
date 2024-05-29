@@ -1,0 +1,26 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: eks-cluster
+  version: "1.29"
+  region: "us-west-2"
+
+kubernetesNetworkConfig:
+  ipFamily: IPv4
+
+managedNodeGroups:
+  - name: default-node-group
+    labels:
+      role: default-worker
+    instanceType: c6i.xlarge
+    desiredCapacity: 2
+    minSize: 2
+    maxSize: 3
+    volumeSize: 80
+    privateNetworking: true
+    volumeType: gp3
+    volumeIOPS: 3000
+    volumeThroughput: 125
+    updateConfig: 
+      maxUnavailable: 1
