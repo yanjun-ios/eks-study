@@ -81,7 +81,7 @@ spec:
     kind: Deployment
     name: eks-sample-linux-deployment
   minReplicas: 1
-  maxReplicas: 10
+  maxReplicas: 20
   metrics:
   - type: Resource
     resource:

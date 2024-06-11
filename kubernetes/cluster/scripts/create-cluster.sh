@@ -37,3 +37,6 @@ helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-contro
   --set serviceAccount.name=aws-load-balancer-controller
 
 kubectl get deployment -n kube-system aws-load-balancer-controller
+
+# 4.Install metrics-server for HPA
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml

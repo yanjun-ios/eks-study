@@ -45,7 +45,6 @@ NODEGROUP=$(aws eks list-nodegroups --cluster-name "${CLUSTER_NAME}" \
 LAUNCH_TEMPLATE=$(aws eks describe-nodegroup --cluster-name "${CLUSTER_NAME}" \
     --nodegroup-name "${NODEGROUP}" --query 'nodegroup.launchTemplate.{id:id,version:version}' \
     --output text | tr -s "\t" ",")
-# If your EKS setup is configured to use only Cluster security group, then please execute -
 SECURITY_GROUPS=$(aws eks describe-cluster \
     --name "${CLUSTER_NAME}" --query "cluster.resourcesVpcConfig.clusterSecurityGroupId" --output text)
 SECURITY_GROUPS="$(aws ec2 describe-launch-template-versions \
