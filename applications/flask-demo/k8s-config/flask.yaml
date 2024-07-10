@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: eks-sample-linux-deployment
+  name: flask-deployment
   namespace: default
   labels:
-    app: eks-sample-linux-app
+    app: flask-app
 spec:
-  replicas: 5
+  replicas: 2
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -14,30 +14,30 @@ spec:
       maxUnavailable: 20%
   selector:
     matchLabels:
-      app: eks-sample-linux-app
+      app: flask-app
   template:
     metadata:
       labels:
-        app: eks-sample-linux-app
+        app: flask-app
     spec:
       containers:
-      - name: nginx
-        image: 091063646508.dkr.ecr.us-west-2.amazonaws.com/nginx:latest
+      - name: flask
+        image: 091063646508.dkr.ecr.us-west-2.amazonaws.com/flask:latest
         ports:
         - name: http
-          containerPort: 80
+          containerPort: 8080
         imagePullPolicy: IfNotPresent
         # 就绪探针
         readinessProbe:
           httpGet:
             path: /
-            port: 80
+            port: 8080
           initialDelaySeconds: 5
           periodSeconds: 2
         # 存活探针
         livenessProbe:
           tcpSocket:
-            port: 80
+            port: 8080
           initialDelaySeconds: 5
           periodSeconds: 2
         # 资源限制
@@ -52,34 +52,29 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: eks-sample-linux-service
+  name: flask-service
   namespace: default
   labels:
-    app: eks-sample-linux-app
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: external
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
-    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+    app: flask-app
 spec:
   selector:
-    app: eks-sample-linux-app
-  type: LoadBalancer
+    app: flask-app
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 80
+      targetPort: 8080
 
 # HPA要先执行 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: nginx
+  name: flask-hpa
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: eks-sample-linux-deployment
+    name: flask-deployment
   minReplicas: 5
   maxReplicas: 20
   metrics:
