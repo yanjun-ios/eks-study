@@ -1,0 +1,22 @@
+version: 0.2
+phases:
+    install:
+        commands:
+        - echo "Installing dependencies..."
+    pre_build:
+        commands:
+        - echo "Checking Dockerfile..."
+        - if [ ! -f Dockerfile ]; then echo "Dockerfile not found. Aborting build." && exit 1; fi
+
+        - echo "Running pre-build commands..."
+        - repo_exists=$(aws ecr describe-repositories --repository-names "${namespace}/${app_name}" --region us-west-2 2>/dev/null || true)
+        - if [ -z "$repo_exists" ]; then aws ecr create-repository --repository-name "${namespace}/${app_name}" --region us-west-2; fi
+    build:
+        commands:
+        - echo "Running build commands..."
+        - aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin ${repo_prefix}
+        - docker build -t ${repo_prefix}/${namespace}/${app_name}:$version .
+        - docker push ${repo_prefix}/${namespace}/${app_name}:$version
+    post_build:
+        commands:
+        - echo "Running post-build commands..."

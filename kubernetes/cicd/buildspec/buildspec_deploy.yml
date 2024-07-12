@@ -1,0 +1,26 @@
+version: 0.2
+phases:
+    install:
+        commands:
+        - echo "Installing helm"
+        - curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+        - helm repo add stable https://charts.helm.sh/stable
+        - curl https://s3.us-west-2.amazonaws.com/amazon-eks/1.29.3/2024-04-19/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl
+        - chmod +x /usr/local/bin/kubectl
+    pre_build:
+        commands:
+        - echo "Update kubeconfig..."
+        - aws eks update-kubeconfig --name ${cluster_name} --region ${region}
+        - echo "add helm template..."
+        - mkdir web-application && aws s3 sync ${chart_template_location} ./web-application/
+        - echo "replace the template veriables..."
+        - sed -i -e "s/@app-name@/${app_name}/g" -e "s/@image-url@/${repo_prefix}\/${namespace}\/${app_name}:$version/g" -e "s/@port@/${port}/g" -e "s/@namespace@/${namespace}/g" ./web-application/values.yaml
+        - echo "upload chart file to s3 ..."
+        - aws s3 sync ./web-application/ ${chart_app_s3_location}
+    build:
+        commands:
+        - echo "Running deploy commands..."
+        - helm upgrade --install --force ${app_name} web-application 
+    post_build:
+        commands:
+        - echo "Running post-build commands..."

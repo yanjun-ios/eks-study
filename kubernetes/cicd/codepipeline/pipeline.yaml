@@ -1,0 +1,113 @@
+# pipeline.yaml
+pipeline:
+  name: {namespace}-{app_name}-pipeline
+  roleArn: {serviceRole}
+  artifactStore:
+    type: S3
+    location: {s3_bucket_name}
+  pipelineType: V2
+  variables:
+    - name: version
+      defaultValue: v1.0.0
+      description: application version
+  stages:
+    - name: source
+      actions:
+        - name: SourceAction
+          actionTypeId:
+            category: Source
+            owner: AWS
+            version: '1'
+            provider: S3
+          outputArtifacts:
+            - name: SourceOutput
+          configuration:
+            S3Bucket: {s3_bucket_name}
+            S3ObjectKey: {namespace}/{app_name}/code/code.zip
+            PollForSourceChanges: 'false'
+          runOrder: 1
+    - name: build
+      actions:
+        - name: BuildAction
+          actionTypeId:
+            category: Build
+            owner: AWS
+            version: '1'
+            provider: CodeBuild
+          inputArtifacts:
+            - name: SourceOutput
+          outputArtifacts:
+            - name: BuildOutput
+          configuration:
+            EnvironmentVariables: "[{\"name\":\"version\",\"value\":\"#{variables.version}\",\"type\":\"PLAINTEXT\"}]"
+            ProjectName: {namespace}-{app_name}-build-project
+          runOrder: 1
+    - name: deploy-to-test
+      actions:
+        - name: BuildAction
+          actionTypeId:
+            category: Build
+            owner: AWS
+            version: '1'
+            provider: CodeBuild
+          inputArtifacts:
+            - name: SourceOutput
+          outputArtifacts:
+            - name: DeployTestOutput
+          configuration:
+            EnvironmentVariables: "[{\"name\":\"version\",\"value\":\"#{variables.version}\",\"type\":\"PLAINTEXT\"}]"
+            ProjectName: {namespace}-{app_name}-us-aws-test
+          runOrder: 1
+    - name: manual-approval
+      actions:
+        - name: ManualApprovalAction
+          actionTypeId:
+            category: Approval
+            owner: AWS
+            version: '1'
+            provider: Manual
+          runOrder: 1
+    - name: deploy-to-prod
+      actions:
+        - name: Deploy-To-US-AWS
+          actionTypeId:
+            category: Build
+            owner: AWS
+            version: '1'
+            provider: CodeBuild
+          inputArtifacts:
+            - name: SourceOutput
+          outputArtifacts:
+            - name: DeployUSOutput
+          configuration:
+            EnvironmentVariables: "[{\"name\":\"version\",\"value\":\"#{variables.version}\",\"type\":\"PLAINTEXT\"}]"
+            ProjectName: {namespace}-{app_name}-us-aws-prod
+          runOrder: 1
+        - name: Deploy-To-EU-AWS
+          actionTypeId:
+            category: Build
+            owner: AWS
+            version: '1'
+            provider: CodeBuild
+          inputArtifacts:
+            - name: SourceOutput
+          outputArtifacts:
+            - name: DeployEUOutput
+          configuration:
+            EnvironmentVariables: "[{\"name\":\"version\",\"value\":\"#{variables.version}\",\"type\":\"PLAINTEXT\"}]"
+            ProjectName: {namespace}-{app_name}-eu-aws-prod
+          runOrder: 1
+        - name: Deploy-To-SEA-AWS
+          actionTypeId:
+            category: Build
+            owner: AWS
+            version: '1'
+            provider: CodeBuild
+          inputArtifacts:
+            - name: SourceOutput
+          outputArtifacts:
+            - name: DeploySEAOutput
+          configuration:
+            EnvironmentVariables: "[{\"name\":\"version\",\"value\":\"#{variables.version}\",\"type\":\"PLAINTEXT\"}]"
+            ProjectName: {namespace}-{app_name}-sea-aws-prod
+          runOrder: 1
