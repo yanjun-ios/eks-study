@@ -1,5 +1,5 @@
 # 1. 控制台创建 code pipeline role
-# 1.1 创建信任策略文件
+## 1.1 创建信任策略文件
 echo '{
     "Version": "2012-10-17",
     "Statement": [
@@ -17,12 +17,12 @@ echo '{
     ]
 }' > trust-policy.json
 
-# 1.2 创建 IAM 角色
+## 1.2 创建 IAM 角色
 aws iam create-role \
     --role-name codepipeline-role \
     --assume-role-policy-document file://trust-policy.json
 
-# 1.3 附加 AdministratorAccess 权限策略
+## 1.3 附加 AdministratorAccess 权限策略
 aws iam attach-role-policy \
     --role-name CodePipelineRole \
     --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
@@ -51,27 +51,27 @@ aws s3 cp code.zip s3://${s3_bucket_name}/tenant1/flask/code/code.zip
 kubectl create namespace tenant1
 python3 create_code_pipeline.py
 
-# 6.1 运行 api 服务（可选）
-# pip install uvicorn fastapi boto3
+## 6.1 运行 api 服务（可选）
+#pip install uvicorn fastapi boto3
 uvicorn api:app -h 0.0.0.0 --host 0.0.0.0 --reload
-# start pipeline
+#start pipeline
 curl -XPOST -H "Content-Type: application/json" http://172.31.26.111:8000/start-pipeline -d'{"namespace":"tenant1","app_name":"flask","version":"v1.1.1"}'
-# create pipeline 
+#create pipeline 
 curl -XPOST -H "Content-Type: application/json" http://172.31.26.111:8000/create-pipeline -d'{"namespace":"tenant1","app_name":"flask","port":"8080","version":"v1.1.1"}'
-# create event 
+#create event 
 curl -XPOST -H "Content-Type: application/json" http://172.31.26.111:8000/create-event-rule -d'{"namespace":"tenant1","app_name":"flask"}'
 
 # 7. 删除 pipeline 资源
 kubectl create namespace tenant1
-# 7.1 删除 pipeline
+## 7.1 删除 pipeline
 aws codepipeline list-pipelines --query 'pipelines[?contains(name, `tenant1`)].name' --output text | xargs -I {} aws codepipeline delete-pipeline --name {}
-# 7.2 删除 codebuild project
+## 7.2 删除 codebuild project
 aws codebuild delete-project --name tenant1-flask-sea-aws-prod
 aws codebuild delete-project --name tenant1-flask-eu-aws-prod
 aws codebuild delete-project --name tenant1-flask-us-aws-prod
 aws codebuild delete-project --name tenant1-flask-us-aws-test
 aws codebuild delete-project --name tenant1-flask-build-project
-# 7.3 删除 event rule
+## 7.3 删除 event rule
 RULE_NAME='tenant1-flask-s3-trigger'
 aws events remove-targets --rule $RULE_NAME --ids $(aws events list-targets-by-rule --rule $RULE_NAME --query 'Targets[*].Id' --output text)
 aws events delete-rule --name $RULE_NAME
