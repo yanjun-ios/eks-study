@@ -24,7 +24,7 @@ aws iam create-role \
 
 ## 1.3 附加 AdministratorAccess 权限策略
 aws iam attach-role-policy \
-    --role-name CodePipelineRole \
+    --role-name codepipeline-role \
     --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 
 ROLE_ARN=$(aws iam get-role --role-name codepipeline-role --query 'Role.Arn' --output text)

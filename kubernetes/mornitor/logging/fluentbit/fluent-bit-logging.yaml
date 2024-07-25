@@ -1,0 +1,354 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluent-bit
+  namespace: logging
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fluent-bit-read
+rules:
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+  - apiGroups: [""]
+    resources:
+      - namespaces
+      - pods
+      - pods/logs
+      - nodes
+      - nodes/proxy
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fluent-bit-read
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: fluent-bit-read
+subjects:
+- kind: ServiceAccount
+  name: fluent-bit
+  namespace: logging
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config-containerd
+  namespace: logging
+  labels:
+    k8s-app: fluent-bit
+data:
+  # Configuration files: server, input, filters and output
+  # ======================================================
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush                       10
+        Daemon                      off
+        Log_level                   Info
+        Http_server                 On
+        Http_listen                 0.0.0.0
+        Http_port                   2022
+        storage.path                /var/fluent-bit/state/flb-storage/
+        storage.sync                normal
+        storage.checksum            off
+        storage.backlog.mem_limit   5M
+        Parsers_File                parsers.conf
+        Hot_Reload                  On
+    [INPUT]
+        Name                tail
+        Alias               fe9ae474-fb6e-4260-a880-2012c02d3e08_input
+        Tag                 kube.<namespace_name>.<pod_name>.<container_name>
+        Tag_Regex           (?<pod_name>[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)_(?<namespace_name>[^_]+)_(?<container_name>.+)-
+        # Tag                 log.fe9ae474-fb6e-4260-a880-2012c02d3e08.bcbdd86c-4f25-45cd-a1ad-c23cadb9d7b3.v1.*
+        DB                  /var/fluent-bit/state/flb_container-fe9ae474-fb6e-4260-a880-2012c02d3e08.bcbdd86c-4f25-45cd-a1ad-c23cadb9d7b3.v1.db
+        DB.locking          True
+        Mem_Buf_Limit       30M
+        # Since "Skip_Long_Lines" is set to "On", be sure to adjust the "Buffer_Chunk_Size","Buffer_Max_Size" according to the actual log. If the parameters are adjusted too much, the number of duplicate records will increase. If the value is too small, data will be lost.
+        # https://docs.fluentbit.io/manual/pipeline/inputs/tail
+        Buffer_Chunk_Size   512k
+        Buffer_Max_Size     5M
+        Skip_Long_Lines     On
+        Skip_Empty_Lines    On
+        Refresh_Interval    10
+        Rotate_Wait         30
+        storage.type        filesystem
+        Read_from_Head      True
+        Path_Key            file_name
+        Path                /var/log/containers/*
+        Exclude_Path        /var/log/containers/cloudwatch-agent*,/vat/log/containers/*kubesphere*, /var/log/containers/fluent-bit*, /var/log/containers/aws-node*, /var/log/containers/kube-proxy*
+        Parser              cri_regex
+    
+    [FILTER]
+        Name                parser
+        Match               log.fe9ae474-fb6e-4260-a880-2012c02d3e08.bcbdd86c-4f25-45cd-a1ad-c23cadb9d7b3.v1.*
+        Key_Name            log
+        Parser              singlelinetext_bcbdd86c-4f25-45cd-a1ad-c23cadb9d7b3_v1
+    
+    [OUTPUT]
+        Name                        s3
+        Alias                       fe9ae474-fb6e-4260-a880-2012c02d3e08_output
+        Match                       kube.*
+        # Match                       log.fe9ae474-fb6e-4260-a880-2012c02d3e08.bcbdd86c-4f25-45cd-a1ad-c23cadb9d7b3.v1.*
+        bucket                      loghub-poc-clloggingbucket5f34e4eb-zempo7pzbbsz
+        region                      us-west-2
+        total_file_size             50M
+        upload_timeout              10s
+        use_put_object              true
+        s3_key_format               /LightEngine/AppLogs/$TAG[1]/$TAG[3]/%Y-%m-%d/%H-%M-%S-$UUID.gz
+        s3_key_format_tag_delimiters .
+        compression                 gzip
+        storage_class               INTELLIGENT_TIERING
+        json_date_key               time
+        json_date_format            iso8601
+        tls.verify                  False
+        Retry_Limit                 False
+        # Role_arn                    arn:aws:iam::091063646508:role/CL-buffer-access-bd112b64-2150-496a-8a3e-be73df630c64
+    
+    # Add hostname to metrics to identify them
+    [FILTER]
+        Name record_modifier
+        Match CL-flb_metrics
+        Record hostname ${HOSTNAME}
+    
+    # Filter out everything except output metrics
+    # TODO:  REMOVE this filter if you want INPUT PLUGIN METRICS
+    [FILTER]
+        Name grep
+        Match CL-flb_metrics
+        Regex exec output
+    
+    # Filter out the HELP and TYPE fields which aren't parseable by the cw metric filter
+    [FILTER]
+        Name grep
+        Match CL-flb_metrics
+        Exclude exec HELP
+    
+    [FILTER]
+        Name grep
+        Match CL-flb_metrics
+        Exclude exec TYPE
+    
+    # Parse the metrics to json for easy parsing in CW Log Group Metrics filter
+    [FILTER]
+        Name parser
+        Match CL-flb_metrics
+        Key_Name exec
+        Parser fluentbit_prom_metrics_to_json
+        Reserve_Data True
+    
+    [FILTER]
+        Name                kubernetes
+        Match               log.*
+        Kube_Tag_Prefix     log.var.log.containers.
+
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+
+        Merge_Log           On
+        Merge_Log_Trim      On
+        Merge_Log_Key       log_processed
+
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude Off
+        Buffer_Size         0
+        Use_Kubelet         True
+        Kubelet_Port        10250
+
+
+
+    [FILTER]
+        Name                modify
+        Match               log.*
+        Set                 cluster ${CLUSTER_NAME}
+
+  parsers.conf: |
+    [PARSER]
+        Name   json
+        Format json
+        Time_Key time
+        Time_Format %Y-%m-%dT%H:%M:%S.%LZ
+
+    [PARSER]
+        Name         docker
+        Format       json
+        Time_Key     container_log_time
+        Time_Format  %Y-%m-%dT%H:%M:%S.%LZ
+        Time_Keep    On
+
+    [PARSER]
+        Name        cri_regex
+        Format      regex
+        Regex       ^(?<container_log_time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) ?(?<log>.*)$
+
+    [PARSER]
+        Name        singlelinetext_bcbdd86c-4f25-45cd-a1ad-c23cadb9d7b3_v1
+        Format      regex
+        Time_Key    time
+        Regex       (?<log>.+)
+
+    [PARSER]
+        Name fluentbit_prom_metrics_to_json
+        Format regex
+        Regex ^(?<metric>[^ {}]*){name=\"(?<plugin>[^ {}\"]*)\"} (?<value>[^ ]*) (?<time>[^ ]*)
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  namespace: logging
+  labels:
+    app.kubernetes.io/name: fluent-bit-logging
+spec:
+  selector:
+    matchLabels:
+      app: fluent-bit-logging
+  updateStrategy:
+        type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: fluent-bit-logging
+        version: v1
+        kubernetes.io/cluster-service: "true"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "2022"
+        prometheus.io/path: /api/v1/metrics/prometheus
+    spec:
+      initContainers:
+      - name: amazonlinux2
+        image: amazonlinux:latest
+        args:
+          - /bin/bash
+          - -xec
+          - |
+            cd /tmp
+
+            OS_ARCH=$(uname -m | grep 'aarch64' | wc -l)
+            if [ $OS_ARCH -eq 1 ];then
+              curl -LO $EKS_KUBECTL_DOWNLOAD_URL_ARM
+            else
+              curl -LO $EKS_KUBECTL_DOWNLOAD_URL_X86_64
+            fi
+
+            chmod 755 kubectl
+            yum -y install jq
+            echo $NODE_NAME > /tmp/node_name.txt
+            CONTAINER_RUNTIME=$(./kubectl get node $NODE_NAME -o json | jq -r '.status.nodeInfo.containerRuntimeVersion')
+            result=$(echo $CONTAINER_RUNTIME | grep 'docker' | wc -l)
+
+            # if [ $result -eq 1 ];then
+            #   echo "we use docker runtime!" > /tmp/result.txt
+            #   #./kubectl apply -f /tmp/fluent-bit-cofigmap-docker.yaml
+            #   cp /fluent-bit-config-docker/* /configmap/
+            # fi
+
+            if [ $result -eq 0 ];then
+              echo "we use containerd runtime!" > /tmp/result.txt
+              #./kubectl apply -f /tmp/fluent-bit-cofigmap-containerd.yaml
+              cp /fluent-bit-config-containerd/* /configmap/
+            fi
+
+            #echo $CONTAINER_RUNTIME > /tmp/container_runtime.txt
+
+        env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: EKS_KUBECTL_DOWNLOAD_URL_ARM
+            value: "https://s3.us-west-2.amazonaws.com/amazon-eks/1.29.3/2024-04-19/bin/linux/arm64/kubectl"
+          - name: EKS_KUBECTL_DOWNLOAD_URL_X86_64
+            value: "https://s3.us-west-2.amazonaws.com/amazon-eks/1.29.3/2024-04-19/bin/linux/amd64/kubectl"
+        volumeMounts:
+          # - name: fluent-bit-config-docker
+          #   mountPath: /fluent-bit-config-docker
+          #   readOnly: true
+          - name: fluent-bit-config-containerd
+            mountPath: /fluent-bit-config-containerd
+            readOnly: true
+          - name: configmap-dir
+            mountPath: "/configmap"
+
+      containers:
+      - name: fluent-bit
+        image: public.ecr.aws/aws-observability/aws-for-fluent-bit:2.31.12
+        imagePullPolicy: Always
+        env:
+          - name: CLUSTER_NAME
+            value: "eks-cluster"
+          - name: AWS_ACCESS_KEY_ID
+            value: xxx
+          - name: AWS_SECRET_ACCESS_KEY
+            value: xxx
+        ports:
+          - containerPort: 2022
+        # command: ["/fluent-bit/bin/fluent-bit", "-c"]
+        # args:
+        # - /fluent-bit/etc/fluent-bit.conf
+        resources:
+          limits:
+            memory: 500Mi
+          requests:
+            cpu: 200m
+            memory: 100Mi
+        securityContext:                 
+          allowPrivilegeEscalation: false
+          runAsNonRoot: false
+        volumeMounts:
+        #reference volume name
+        - name: configmap-dir
+          mountPath: /fluent-bit/etc
+        - name: fluentbitstate
+          mountPath: /var/fluent-bit/state
+        - name: var-log
+          mountPath: /var/log
+        - name: var-lib-docker-containers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+      terminationGracePeriodSeconds: 10
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      volumes:
+      #define volume name
+      - name: configmap-dir
+        emptyDir: {}
+      # - name: fluent-bit-config-docker
+      #   configMap:
+      #     name: fluent-bit-config-docker
+      - name: fluent-bit-config-containerd
+        configMap:
+          name: fluent-bit-config-containerd
+      - name: fluentbitstate
+        hostPath:
+          path: /var/fluent-bit/state
+      - name: var-log
+        hostPath:
+          path: /var/log
+      - name: var-lib-docker-containers
+        hostPath:
+          path: /var/lib/docker/containers
+      serviceAccountName: fluent-bit
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      - operator: "Exists"
+        effect: "NoExecute"
+      - operator: "Exists"
+        effect: "NoSchedule"

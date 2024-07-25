@@ -10,4 +10,4 @@ helm upgrade -i kubecost oci://public.ecr.aws/kubecost/cost-analyzer --version $
 -f ../config/values-eks-cost-monitoring.yaml
 
 # 3. Expose the service
-kubectl apply -f mgmt/kubecost/config/kubecost-ingress.yaml
+kubectl apply -f ../config/kubecost-ingress.yaml
