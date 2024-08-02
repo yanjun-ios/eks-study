@@ -53,18 +53,22 @@ python3 create_code_pipeline.py
 
 ## 6.1 运行 api 服务（可选）
 #pip install uvicorn fastapi boto3
+
 uvicorn api:app -h 0.0.0.0 --host 0.0.0.0 --reload
 
 
 #start pipeline
+
 curl -XPOST -H "Content-Type: application/json" http://172.31.26.111:8000/start-pipeline -d'{"namespace":"tenant1","app_name":"flask","version":"v1.1.1"}'
 
 
 #create pipeline 
+
 curl -XPOST -H "Content-Type: application/json" http://172.31.26.111:8000/create-pipeline -d'{"namespace":"tenant1","app_name":"flask","port":"8080","version":"v1.1.1"}'
 
 
 #create event 
+
 curl -XPOST -H "Content-Type: application/json" http://172.31.26.111:8000/create-event-rule -d'{"namespace":"tenant1","app_name":"flask"}'
 
 # 7. 删除 pipeline 资源
