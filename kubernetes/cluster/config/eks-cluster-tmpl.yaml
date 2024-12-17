@@ -2,9 +2,9 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: eks-cluster-01
-  version: '1.31'
-  region: us-west-2
+  name: {CLUSTER_NAME}
+  version: {KUBERNETES_VERSION}
+  region: {AWS_REGION}
 
 vpc:
   subnets:

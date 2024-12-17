@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # 1. Create EKS Cluster
-sed -i "s/{KUBERNETES_VERSION}/${KUBERNETES_VERSION}/g" ../config/eks-cluster.yaml
+sed -i "s/{CLUSTER_NAME}/${CLUSTER_NAME}/g" ../config/eks-cluster.yaml
+sed -i "s/{KUBERNETES_VERSION}/\'${KUBERNETES_VERSION}\'/g" ../config/eks-cluster.yaml
 sed -i "s/{AWS_REGION}/${AWS_REGION}/g" ../config/eks-cluster.yaml
 
 eksctl create cluster -f ../config/eks-cluster.yaml
@@ -12,10 +13,10 @@ eksctl utils associate-iam-oidc-provider --cluster $CLUSTER_NAME --approve
 
 # 3. Install LoadBancer Controller
 # https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/lbc-helm.html
-curl --location -o ../config/iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy.json
+curl --location -o ../config/iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/refs/heads/main/docs/install/iam_policy.json
 
 aws iam create-policy \
-    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy-${CLUSTER_NAME} \
     --policy-document file://../config/iam-policy.json \
     || true
 
@@ -23,7 +24,7 @@ eksctl create iamserviceaccount \
   --cluster=${CLUSTER_NAME} \
   --namespace=kube-system \
   --name=aws-load-balancer-controller \
-  --attach-policy-arn=arn:aws:iam::${ACCOUNT_ID}:policy/AWSLoadBalancerControllerIAMPolicy \
+  --attach-policy-arn=arn:aws:iam::${ACCOUNT_ID}:policy/AWSLoadBalancerControllerIAMPolicy-${CLUSTER_NAME} \
   --override-existing-serviceaccounts \
   --region ${AWS_REGION} \
   --approve

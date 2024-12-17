@@ -293,9 +293,9 @@ spec:
           - name: CLUSTER_NAME
             value: "eks-cluster"
           - name: AWS_ACCESS_KEY_ID
-            value: xxx
+            value: xxxx
           - name: AWS_SECRET_ACCESS_KEY
-            value: xxx
+            value: xxxx
         ports:
           - containerPort: 2022
         # command: ["/fluent-bit/bin/fluent-bit", "-c"]
