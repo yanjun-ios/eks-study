@@ -2,9 +2,9 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   namespace: flask
-  name: ingress-for-nginx
+  name: ingress-for-flask
   labels:
-    app: ingress-for-nginx
+    app: ingress-for-flask
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/healthcheck-path: /
