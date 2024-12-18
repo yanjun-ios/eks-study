@@ -3,7 +3,8 @@
 # reference: https://karpenter.sh/docs/getting-started/migrating-from-cas/
 
 KARPENTER_NAMESPACE=karpenter
-KARPENTER_VERSION="0.37.0"
+# KARPENTER_VERSION="0.37.0"
+KARPENTER_VERSION="1.1.1"
 TEMPOUT=$(mktemp)
 
 curl -fsSL https://raw.githubusercontent.com/aws/karpenter-provider-aws/v"${KARPENTER_VERSION}"/website/content/en/preview/getting-started/getting-started-with-karpenter/cloudformation.yaml  > "${TEMPOUT}" \
