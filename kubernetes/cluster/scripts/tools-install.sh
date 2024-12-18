@@ -82,10 +82,10 @@ sudo mv -v /tmp/eksctl /usr/local/bin
 eksctl version
 
 # 13. eksctl bash-completion
-rm -fr ~/.bash_completion
-eksctl completion bash >> ~/.bash_completion
-. /etc/profile.d/bash_completion.sh
-. ~/.bash_completion
+# rm -fr ~/.bash_completion
+# eksctl completion bash >> ~/.bash_completion
+# . /etc/profile.d/bash_completion.sh
+# . ~/.bash_completion
 
 # 14. Install k9s
 K9S_VERSION=v0.32.7
