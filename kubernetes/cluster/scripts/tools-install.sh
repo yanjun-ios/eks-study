@@ -1,3 +1,4 @@
+#!/bin/bash
 ################################
 ## Install tools : awscli kubectl eksctl k9s helm jq yq bash-completion .
 ################################
@@ -11,6 +12,7 @@ curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip
 unzip awscliv2.zip
 sudo ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update
 aws configure set default.region us-west-2
+rm -fr aws  awscliv2.zip
 
 # 2. Install kubectl ref - https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/install-kubectl.html
 if [ "$KUBERNETES_VERSION" = "latest" ]; then
@@ -29,7 +31,7 @@ sudo curl $kubectl_url -o /usr/local/bin/kubectl
 sudo chmod +x /usr/local/bin/kubectl
 
 # 3. jq, envsubst, bash-completion
-sudo yum -y install jq gettext bash-completion moreutils
+sudo yum -y install jq gettext bash-completion
 
 # 4. Install and verify yq
 echo 'yq() {
@@ -42,6 +44,7 @@ for command in kubectl jq envsubst aws
   done
 
 # 5. kubectl bash_completion
+rm -fr ~/.bash_completion
 kubectl completion bash >> ~/.bash_completion
 . /etc/profile.d/bash_completion.sh
 . ~/.bash_completion
@@ -79,6 +82,7 @@ sudo mv -v /tmp/eksctl /usr/local/bin
 eksctl version
 
 # 13. eksctl bash-completion
+rm -fr ~/.bash_completion
 eksctl completion bash >> ~/.bash_completion
 . /etc/profile.d/bash_completion.sh
 . ~/.bash_completion
@@ -93,6 +97,7 @@ helm version --short
 helm repo add stable https://charts.helm.sh/stable
 
 # 16. helm bash-completion
+rm -fr ~/.bash_completion
 helm completion bash >> ~/.bash_completion
 . /etc/profile.d/bash_completion.sh
 . ~/.bash_completion
