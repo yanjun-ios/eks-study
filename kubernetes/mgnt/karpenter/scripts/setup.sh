@@ -78,7 +78,7 @@ kubectl apply -f ../config/karpenter.yaml
 # add default NodePool
 # Reference: https://karpenter.sh/docs/concepts/nodepools/
 cat <<EOF | envsubst > ../config/nodepool-default.yaml
-apiVersion: karpenter.sh/v1beta1
+apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:
   name: default
@@ -94,7 +94,7 @@ spec:
           values: ["linux"]
         - key: karpenter.sh/capacity-type
           operator: In
-          values: ["spot","on-demand"] 
+          values: ["spot"]
         - key: karpenter.k8s.aws/instance-category
           operator: In
           values: ["c", "m", "r"]
@@ -102,16 +102,17 @@ spec:
           operator: Gt
           values: ["4"]
       nodeClassRef:
-        apiVersion: karpenter.k8s.aws/v1beta1
+        group: karpenter.k8s.aws
         kind: EC2NodeClass
         name: default
+      expireAfter: 720h # 30 * 24h = 720h
   limits:
     cpu: 1000
   disruption:
-    consolidationPolicy: WhenUnderutilized
-    expireAfter: 720h # 30 * 24h = 720h
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 1m
 ---
-apiVersion: karpenter.k8s.aws/v1beta1
+apiVersion: karpenter.k8s.aws/v1
 kind: EC2NodeClass
 metadata:
   name: default
@@ -124,9 +125,9 @@ spec:
   securityGroupSelectorTerms:
     - tags:
         karpenter.sh/discovery: "${CLUSTER_NAME}" # replace with your cluster name
-  # amiSelectorTerms:
-  #   - id: "${ARM_AMI_ID}"
-  #   - id: "${AMD_AMI_ID}"
+#  amiSelectorTerms:
+#    - id: "${ARM_AMI_ID}"
+#    - id: "${AMD_AMI_ID}"
 #   - id: "${GPU_AMI_ID}" # <- GPU Optimized AMD AMI 
 #   - name: "amazon-eks-node-${K8S_VERSION}-*" # <- automatically upgrade when a new AL2 EKS Optimized AMI is released. This is unsafe for production workloads. Validate AMIs in lower environments before deploying them to production.
 EOF
