@@ -2,20 +2,9 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: eks-cluster-01
-  version: '1.31'
-  region: us-west-2
-
-vpc:
-  subnets:
-    public:
-      us-west-2b: { id: subnet-071e5d4501d842fdf }
-      us-west-2c: { id: subnet-0606639520eb649ba }
-      us-west-2d: { id: subnet-0292f634b0bf87229 }
-    private:
-      us-west-2b: { id: subnet-0e3fda513a84e4bdd }
-      us-west-2c: { id: subnet-0c936b26642804d94 }
-      us-west-2d: { id: subnet-04b7de08c070a880e }
+  name: {CLUSTER_NAME}
+  version: {KUBERNETES_VERSION}
+  region: {AWS_REGION}
 
 kubernetesNetworkConfig:
   ipFamily: IPv4
